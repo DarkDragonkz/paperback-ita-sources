@@ -15,7 +15,7 @@
     "@types/node": "^16.11.7",
     "gulp": "^4.0.2",
     "gulp-cli": "^2.3.0",
-    "paperback-extensions-common": "4.4.1",
+    "paperback-extensions-common": "^4.0.0",
     "ts-node": "^10.4.0",
     "typescript": "^4.5.2"
   }
