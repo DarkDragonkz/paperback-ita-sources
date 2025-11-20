@@ -1,67 +1,169 @@
-import { Source, Manga, MangaStatus, Chapter, ChapterDetails, HomeSectionRequest, HomeSection, MangaTile, SearchRequest, LanguageCode, TagSection, Request, MangaUpdates, SourceTag, TagType, PagedResults } from "paperback-extensions-common"
-const SOURCE_DOMAIN = "https://www.mangaworld.mx"
+import {
+  Source,
+  Manga,
+  Chapter,
+  ChapterDetails,
+  HomeSection,
+  SearchRequest,
+  PagedResults,
+  SourceInfo,
+  ContentRating,
+  Request,
+  Response,
+} from 'paperback-extensions-common'
+
+import * as cheerio from 'cheerio'
+
+const MW_DOMAIN = 'https://www.mangaworld.mx'
+
+export const MangaWorldInfo: SourceInfo = {
+  version: '1.0.0',
+  name: 'MangaWorld',
+  icon: 'icon.png',
+  author: 'DarkDragonkz',
+  authorWebsite: 'https://github.com/DarkDragonkz',
+  description: 'Estensione per MangaWorld (ITA)',
+  contentRating: ContentRating.MATURE,
+  websiteBaseURL: MW_DOMAIN,
+  sourceTags: [
+    {
+      text: 'Italiano',
+      type: 'grey'
+    }
+  ]
+}
 
 export class MangaWorld extends Source {
-    constructor(cheerio: CheerioAPI) {
-        super(cheerio)
+  baseUrl: string = MW_DOMAIN
+
+  // --- 1. DETTAGLI MANGA ---
+  async getMangaDetails(mangaId: string): Promise<Manga> {
+    const request = createRequestObject({
+      url: `${this.baseUrl}/manga/${mangaId}/`,
+      method: 'GET',
+    })
+    const response = await this.requestManager.schedule(request, 1)
+    const $ = cheerio.load(response.data)
+
+    // Titolo
+    const title = $('div.post-title h1').first().text().trim().replace(/[\t\n]/g, '')
+    
+    // Immagine Copertina
+    const image = $('div.summary_image img').attr('src') ?? 
+                  $('div.summary_image img').attr('data-src') ?? ''
+
+    // Descrizione
+    const desc = $('div.summary__content').text().trim()
+
+    // Stato (MangaWorld usa termini italiani, proviamo a indovinare)
+    let status = 1 // Default Ongoing
+    const statusText = $('div.post-status div.summary-content').text().trim().toLowerCase()
+    if (statusText.includes('completato') || statusText.includes('terminato')) {
+      status = 0 // Completed
     }
 
-    get version(): string { return '0.1.0' }
-    get name(): string { return 'MangaWorld' }
-    get description(): string { return 'MangaWorld.mx è un sito web italiano dedicato alla lettura di fumetti/manga' }
-    get author(): string { return 'DragoneOscuro' }
-    get authorWebsite(): string { return '' }
-    get icon(): string { return "logo.png" }
-    get hentaiSource(): boolean { return true }
-    get sourceTags(): SourceTag[] { return [] }
-    get rateLimit(): Number {
-      return 2
-    }
-    get websiteBaseURL(): string { return SOURCE_DOMAIN }
+    return createManga({
+      id: mangaId,
+      titles: [title],
+      image: image,
+      rating: 0,
+      status: status,
+      desc: desc,
+      hentai: false // Cambia se necessario
+    })
+  }
 
-    /**
-     * This method has been provided to you as it's probably rather rare that it ever needs to be changed
-     * even on different sources.
-     * This Method should point to the URL of a specific manga object on your source. Make sure to change
-     * line 33 so that it points to your manga! In this case, 'id' is the manga identifier
-     */
-    getMangaDetailsRequest(ids: string[]): Request[] {
-      let requests: Request[] = []
-      for (let id of ids) {
-        let metadata = { 'id': id }
-        requests.push(createRequestObject({
-          url: `${SOURCE_DOMAIN}/${id}`,
-          metadata: metadata,
-          method: 'GET'
+  // --- 2. LISTA CAPITOLI ---
+  async getChapters(mangaId: string): Promise<Chapter[]> {
+    const request = createRequestObject({
+      url: `${this.baseUrl}/manga/${mangaId}/`,
+      method: 'GET',
+    })
+    const response = await this.requestManager.schedule(request, 1)
+    const $ = cheerio.load(response.data)
+
+    const chapters: Chapter[] = []
+
+    // Selettore tipico di MangaWorld (Madara theme)
+    $('li.wp-manga-chapter').each((_, element) => {
+      const linkElement = $(element).find('a')
+      const url = linkElement.attr('href') ?? ''
+      
+      // L'ID del capitolo è l'ultima parte dell'URL prima dello slash finale
+      // Es: .../manga/naruto/capitolo-1/ -> "capitolo-1"
+      // Attenzione: MangaWorld a volte usa ID lunghi. Prendiamo l'URL relativo completo dopo /manga/ID/
+      let chapterId = ''
+      if(url.includes(mangaId)) {
+          chapterId = url.split(mangaId + '/')[1]
+          if(chapterId.endsWith('/')) chapterId = chapterId.slice(0, -1)
+      }
+
+      const name = linkElement.text().trim()
+      
+      // Tenta di estrarre il numero del capitolo dal testo (es. "Capitolo 50")
+      const chapNumRegex = name.match(/(\d+(\.\d+)?)/)
+      const chapNum = chapNumRegex ? Number(chapNumRegex[0]) : 0
+
+      const timeStr = $(element).find('span.chapter-release-date').text().trim()
+      const time = new Date() // Per ora mettiamo data attuale per semplicità
+
+      if (chapterId) {
+        chapters.push(createChapter({
+          id: chapterId,
+          mangaId: mangaId,
+          name: name,
+          langCode: 'it',
+          chapNum: chapNum,
+          time: time
         }))
       }
-      return requests
-    }
-    
-    getMangaDetails(data: any, metadata: any): Manga[] {
-      let manga: Manga[] = []                           // For your getMangaDetailsRequest URL request, fill this object out with each manga
-      let $ = this.cheerio.load(data)                   // CheerioJS has been loaded with the HTML response, use this to fill out your objects
+    })
 
-      // manga.push(createManga({...}))                 For each object, ALWAYS wrap it in the create tag. createManga({..}), createIconText({...}), etc
-      throw new Error("Method not implemented.")
-    }
-    getChaptersRequest(mangaId: string): Request {
-      throw new Error("Method not implemented.")
-    }
-    getChapters(data: any, metadata: any): Chapter[] {
-      throw new Error("Method not implemented.")
-    }
-    getChapterDetailsRequest(mangaId: string, chapId: string): Request {
-      throw new Error("Method not implemented.")
-    }
-    getChapterDetails(data: any, metadata: any): ChapterDetails {
-      throw new Error("Method not implemented.")
-    }
-    searchRequest(query: SearchRequest): Request {
-      throw new Error("Method not implemented.")
-    }
-    search(data: any, metadata: any): PagedResults {
-      throw new Error("Method not implemented.")
-    }
+    return chapters
+  }
 
+  // --- 3. IMMAGINI DEL CAPITOLO ---
+  async getChapterDetails(mangaId: string, chapterId: string): Promise<ChapterDetails> {
+    const request = createRequestObject({
+      url: `${this.baseUrl}/manga/${mangaId}/${chapterId}/`,
+      method: 'GET',
+    })
+
+    const response = await this.requestManager.schedule(request, 1)
+    const $ = cheerio.load(response.data)
+
+    const pages: string[] = []
+
+    // Selettore per le immagini di lettura
+    $('.reading-content img').each((_, element) => {
+      // MangaWorld usa spesso lazy loading, quindi cerchiamo data-src prima di src
+      let img = $(element).attr('data-src') ?? $(element).attr('src')
+      if (img) {
+        // Pulisci URL se necessario (spesso hanno spazi o caratteri extra)
+        img = img.trim()
+        pages.push(img)
+      }
+    })
+
+    return createChapterDetails({
+      id: chapterId,
+      mangaId: mangaId,
+      pages: pages,
+      longStrip: false
+    })
+  }
+
+  // --- 4. RICERCA (Obbligatoria per far compilare, per ora base) ---
+  async getSearchResults(query: SearchRequest, metadata: any): Promise<PagedResults> {
+    // Implementazione futura
+    return createPagedResults({
+        results: []
+    })
+  }
+  
+  // --- 5. HOME PAGE (Obbligatoria) ---
+  async getHomePageSections(sectionCallback: (section: HomeSection) => void): Promise<void> {
+      // Implementazione futura
+      console.log("Home page requested")
+  }
 }
