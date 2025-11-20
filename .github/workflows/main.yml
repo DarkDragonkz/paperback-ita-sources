@@ -29,10 +29,8 @@ jobs:
       # --- QUESTA E' LA PARTE NUOVA CHE RISOLVE IL PROBLEMA ---
       - name: Install Dependencies and Gulp
         run: |
-          npm install --legacy-peer-deps
           npm install -g gulp-cli
-          npm install gulp --save-dev
-          npm install paperback-extensions-common@4 --save-dev
+          npm install
 
       - name: Run Bundle
         run: npm run bundle
