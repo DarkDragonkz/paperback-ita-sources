@@ -5,5 +5,8 @@
     "test": "node_modules/.bin/mocha --timeout 300000 -r ts-node/register src/**/*.test.ts",
     "coverage": "nyc -r lcov -e .ts -x \"*.test.ts\" npm run test",
     "bundle": "gulp bundle --gulpfile node_modules/paperback-extensions-common/src/repo-gulpfile.js"
+  },
+  "dependencies": {
+    "gulp": "^5.0.1"
   }
 }
