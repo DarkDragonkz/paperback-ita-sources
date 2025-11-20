@@ -20,14 +20,24 @@ jobs:
     steps:
       - name: Checkout Branch
         uses: actions/checkout@v3
+      
       - name: Setup Node.js environment
         uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node-version }}
 
-      - run: npm install --legacy-peer-deps
-      - run: npm run bundle
-      - run: npx typedoc --out bundles/docs
+      # --- QUESTA E' LA PARTE NUOVA CHE RISOLVE IL PROBLEMA ---
+      - name: Install Dependencies and Gulp
+        run: |
+          npm install -g gulp-cli
+          npm install gulp --save-dev
+          npm install --legacy-peer-deps
+
+      - name: Run Bundle
+        run: npm run bundle
+
+      - name: Generate Docs (Optional)
+        run: npx typedoc --out bundles/docs
         continue-on-error: true
 
       - name: Deploy Sources
