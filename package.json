@@ -8,7 +8,7 @@
     "test": "mocha -r ts-node/register src/**/*.test.ts"
   },
   "dependencies": {
-    "cheerio": "^1.0.0-rc.12"
+    "cheerio": "1.0.0-rc.12"
   },
   "devDependencies": {
     "@types/cheerio": "^0.22.31",
