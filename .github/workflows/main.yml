@@ -31,6 +31,7 @@ jobs:
         run: |
           npm install -g gulp-cli
           npm install gulp --save-dev
+          npm install paperback-extensions-common --save-dev
           npm install --legacy-peer-deps
 
       - name: Run Bundle
