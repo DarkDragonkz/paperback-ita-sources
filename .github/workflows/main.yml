@@ -32,7 +32,7 @@ jobs:
           npm install --legacy-peer-deps
           npm install -g gulp-cli
           npm install gulp --save-dev
-          npm install paperback-extensions-common --save-dev
+          npm install paperback-extensions-common@4.5.0 --save-dev
 
       - name: Run Bundle
         run: npm run bundle
